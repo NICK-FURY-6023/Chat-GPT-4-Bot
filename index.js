@@ -26,11 +26,11 @@ client.on('messageCreate', async (message) => {
   if (message.content.startsWith('!')) return;
 
   let conversationLog = [
-    { role: 'system', content: 'You are a friendly chatbot.' },
+    { role: 'system', content: 'You are a friendly chat bot,
   ];
 
   try {
-    const typingMessage = await message.channel.send(`${message.author} <a:q_loadingg:1118877722274443384> generating a response, please wait...`);
+    const typingMessage = await message.channel.send();
 
     // Sending typing status
     await message.channel.sendTyping();
@@ -69,4 +69,4 @@ client.on('messageCreate', async (message) => {
 client.login('YOUR_BOT_TOEKN');
 
 
-￼Enter
+# If you have any problem contact me on Discord and I will solve your problem
