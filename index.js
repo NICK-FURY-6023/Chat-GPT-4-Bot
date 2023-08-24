@@ -25,6 +25,16 @@ client.on('messageCreate', async (message) => {
   if (message.channel.id !== "CHANNEL_ID") return;
   if (message.content.startsWith('!')) return;
 
+  if (message.content.toLowerCase() === '!ping') {
+    const pingMessage = await message.channel.send('Pinging...');
+
+    // Calculate the bot's latency
+    const latency = pingMessage.createdTimestamp - message.createdTimestamp;
+
+    pingMessage.edit(`Pong! Latency is ${latency}ms. Bot Uptime is ${getUptime()}`);
+    return;
+  }
+
   let conversationLog = [
     { role: 'system', content: 'You are a friendly chat bot,
   ];
