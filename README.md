@@ -40,3 +40,6 @@ npm run start
 yarn start
 ```
 
+
+## Discord Server
+[![DiscordBanner](https://invidget.switchblade.xyz/fz8QMYdVDq)](https://discord.gg/fz8QMYdVDq)<br />
