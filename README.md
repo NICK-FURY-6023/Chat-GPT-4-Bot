@@ -11,7 +11,7 @@ This is a simple Discord chat bot built using discord.js and the gpt-3.5-turbo m
 
 
 
-https://github.com/NICK-FURY-6023/Chat-GPT-3.5-turbo.git 
+https://github.com/NICK-FURY-6023/Chat-GPT-4-Bot.git
 ```
 
 2. Install all the dependencies
