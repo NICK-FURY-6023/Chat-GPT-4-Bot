@@ -22,7 +22,7 @@ const openai = new OpenAIApi(configuration);
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
-  if (message.channel.id !== "CHANNEL_ID") return;
+  if (message.channel.id !== "CHANNEL_ID") return; // you can add more channels or more Gulids, servers 
   if (message.content.startsWith('!')) return;
 
   if (message.content.toLowerCase() === '!ping') {
