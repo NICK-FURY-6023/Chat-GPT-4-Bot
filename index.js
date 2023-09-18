@@ -61,7 +61,7 @@ client.on('messageCreate', async (message) => {
 
     const result = await openai
       .createChatCompletion({
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-3.5-turbo', // you can change your ChatGpt model like gpt-4
         messages: conversationLog,
       })
       .catch((error) => {
