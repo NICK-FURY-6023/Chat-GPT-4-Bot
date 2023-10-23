@@ -11,7 +11,7 @@ const client = new Client({
 });
 
 client.on('ready', () => {
-  console.log('The bot is online!');
+  console.log('🟢 The bot is online!');
 });
 
 const configuration = new Configuration({
@@ -31,7 +31,7 @@ client.on('messageCreate', async (message) => {
     // Calculate the bot's latency
     const latency = pingMessage.createdTimestamp - message.createdTimestamp;
 
-    pingMessage.edit(`Pong! Latency is ${latency}ms. Bot Uptime is ${getUptime()}`);
+    pingMessage.edit(`🏓 Pong! Latency is ${latency}ms. ⏳ Bot Uptime is ${getUptime()}`);
     return;
   }
 
