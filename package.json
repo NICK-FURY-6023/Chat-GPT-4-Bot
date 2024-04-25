@@ -24,7 +24,7 @@
     "mongoose": "^7.4.1",
     "node": "^20.5.0",
     "npm": "^9.9.3",
-    "openai": "^3.3.0"
+    "openai": "^4.38.5"
   },
   "devDependencies": {
     "nodemon": "^2.0.21"
