@@ -23,7 +23,7 @@
     "migrate": "^2.1.0",
     "mongoose": "^8.3.4",
     "node": "^22.1.0",
-    "npm": "^9.9.3",
+    "npm": "^10.7.0",
     "openai": "^4.44.0"
   },
   "devDependencies": {
