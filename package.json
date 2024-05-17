@@ -21,7 +21,7 @@
     "install": "^0.13.0",
     "kazagumo": "^3.0.4",
     "migrate": "^2.1.0",
-    "mongoose": "^8.3.5",
+    "mongoose": "^8.4.0",
     "node": "^22.2.0",
     "npm": "^10.7.0",
     "openai": "^4.47.1"
