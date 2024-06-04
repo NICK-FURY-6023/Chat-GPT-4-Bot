@@ -27,6 +27,6 @@
     "openai": "^4.47.1"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.3"
   }
 }
