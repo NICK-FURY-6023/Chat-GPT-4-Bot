@@ -21,19 +21,17 @@ const openai = new OpenAIApi(configuration);
 const systemMessage =
   "You're a sarcastic chatbot in a Discord server. Respond in 5 or less sentences.";
 
-const ignoreMessagePrefix = process.env.IGNORE_MESSAGE_PREFIX;
-
+const ignoreMessagePrefix = process.env.IGNORE_MESSAGE_PREFIX || "!";
 let chatChannels = process.env.CHANNEL_ID.split('-');
 
 client.on('messageCreate', async (message) => {
-  if (message.author.bot) return;
-  if (!chatChannels.includes(message.channelId)) return;
+  if (message.author.bot || !chatChannels.includes(message.channelId)) return;
   if (message.content.startsWith(ignoreMessagePrefix)) return;
 
   let conversationLog = [{ role: 'system', content: systemMessage }];
 
   // Fetch previous messages to use as context
-  let prevMessages = await message.channel.messages.fetch({ limit: 8 }); // Last 8 messages will be used as context
+  let prevMessages = await message.channel.messages.fetch({ limit: 8 });
   prevMessages.reverse();
 
   let initialReply = await message.reply(
@@ -41,20 +39,16 @@ client.on('messageCreate', async (message) => {
   );
 
   prevMessages.forEach((msg) => {
-    if (message.content.startsWith(ignoreMessagePrefix)) return;
-    if (msg.author.id !== client.user.id && message.author.bot) return; // Ignore every bot but itself
+    if (msg.content.startsWith(ignoreMessagePrefix)) return;
+    if (msg.author.bot && msg.author.id !== client.user.id) return; // Ignore other bots
 
-    // If message author is the bot itself
     if (msg.author.id === client.user.id) {
       conversationLog.push({
         role: 'assistant',
         content: msg.content,
         name: msg.author.username.replace(/\s+/g, '_').replace(/[^\w\s]/gi, ''),
       });
-    }
-
-    // If the message is from a regular user
-    else if (msg.author.id === message.author.id) {
+    } else if (msg.author.id === message.author.id) {
       conversationLog.push({
         role: 'user',
         content: msg.content,
@@ -66,12 +60,12 @@ client.on('messageCreate', async (message) => {
   // Generate a response
   openai
     .createChatCompletion({
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4', // Correct model name
       messages: conversationLog,
-      max_tokens: 256, // Limit token usage (optional)
+      max_tokens: 256,
     })
     .then((result) => {
-      let gptReply = result.data.choices[0].message;
+      let gptReply = result.data.choices[0].message.content;
 
       if (gptReply.length > 2000) {
         gptReply = gptReply.slice(0, 1997) + '...';
@@ -80,7 +74,6 @@ client.on('messageCreate', async (message) => {
       initialReply.edit(gptReply);
     })
     .catch(async (error) => {
-      // Edit the message with the error and delete after 5 seconds
       await initialReply.edit(
         `<:xmark:1055230112934674513> There was an error, please try again later.\n${error}`
       );
