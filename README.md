@@ -99,13 +99,3 @@ I'm a self-taught passionate BackEnd developer from India 🇮🇳
 
 ___
 
-# 📊 GitHub Stats
-<img width="48.1%" src="https://github-readme-stats.vercel.app/api?username=NICK-FURY-6023&count_private=true&show_icons=true&theme=react" />  <img width="51%" src="https://streak-stats.demolab.com/?user=abhijivani3001&theme=react" />
-___
-
-<img width="99.5%" src="https://github-readme-activity-graph.vercel.app/graph?username=NICK-FURY-6023&bg_color=21232a&color=a8eeff&line=61dafb&point=f0fcff&area=true&hide_border=false" />
-____
-
-<img width="35%" src="https://github-readme-stats.vercel.app/api/top-langs/?username=NICK-FURY-6023&theme=react&show_icons=true&hide_border=false&layout=compact" />
-
-
