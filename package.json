@@ -19,7 +19,7 @@
     "i": "^0.3.7",
     "index.js": "^0.0.3",
     "install": "^0.13.0",
-    "kazagumo": "^3.2.1",
+    "kazagumo": "^3.2.2",
     "migrate": "^2.1.0",
     "mongoose": "^8.7.1",
     "node": "^22.9.0",
