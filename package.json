@@ -3,30 +3,18 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",  
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "axios": "^1.8.2",
     "deepseekai": "^1.0.5",
     "discord.js": "^14.18.0",
     "dotenv": "^16.4.7",
-    "exec": "^0.2.1",
-    "fs": "^0.0.1-security",
-    "googleapis": "^146.0.0",
-    "i": "^0.3.7",
-    "index.js": "^0.0.3",
-    "install": "^0.13.0",
-    "kazagumo": "^3.0.5",
-    "migrate": "^2.1.0",
     "mongoose": "^8.4.0",
-    "node": "^22.9.0",
     "node-fetch": "^3.3.2",
-    "npm": "^10.8.3",
     "openai": "^4.86.2"
   },
   "devDependencies": {

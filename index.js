@@ -1,10 +1,28 @@
-require('dotenv/config');
-const { Client, IntentsBitField } = require('discord.js');
-const { Configuration, OpenAIApi } = require('openai');
-const axios = require('axios');
-const fetch = require('node-fetch');
+import 'dotenv/config';
+import { Client, IntentsBitField } from 'discord.js';
+import { Configuration, OpenAIApi } from 'openai';
+import { DeepSeek } from 'deepseekai';
+import fetch from 'node-fetch';
+import mongoose from 'mongoose';
 
-// Setup Discord Client
+// Load environment variables
+const { TOKEN, CHANNEL_ID, API_KEY, DEEPSEEK_KEY, GEMINI_KEY, MONGO_URI } = process.env;
+
+// Connect to MongoDB
+async function connectDatabase() {
+  try {
+    await mongoose.connect(MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log('✅ Database connected successfully!');
+  } catch (error) {
+    console.error('❌ Database connection error:', error);
+  }
+}
+connectDatabase();
+
+// Initialize Discord Bot
 const client = new Client({
   intents: [
     IntentsBitField.Flags.Guilds,
@@ -13,146 +31,102 @@ const client = new Client({
   ],
 });
 
-// Verify API keys on startup
-console.log("Checking API Keys...");
-if (!process.env.TOKEN || !process.env.OPENAI_API_KEY || !process.env.DEEPSEEK_API_KEY || !process.env.GOOGLE_GEMINI_API_KEY) {
-  console.error("❌ Missing API keys in .env file!");
-  process.exit(1);
-} else {
-  console.log("✅ API keys loaded successfully.");
-}
+client.once('ready', () => console.log(`✅ ${client.user.username} is online and ready!`));
 
-// OpenAI setup
-const openai = new OpenAIApi(new Configuration({ apiKey: process.env.OPENAI_API_KEY }));
+// Initialize OpenAI & Deepseek AI
+const openai = new OpenAIApi(new Configuration({ apiKey: API_KEY }));
+const deepseek = new DeepSeek(DEEPSEEK_KEY);
 
-client.once('ready', () => {
-  console.log(`${client.user.username} is online and ready! 🚀`);
-});
+// System message for AI behavior
+const systemMessage = "You're a smart AI chatbot. Respond concisely and intelligently.";
 
-const allowedChannels = process.env.CHANNEL_ID?.split(',') || [];
+// Allowed channel
+let chatChannels = CHANNEL_ID.split('-');
 
 client.on('messageCreate', async (message) => {
-  if (message.author.bot) return; // Ignore bot messages
-  if (message.content.trim().startsWith(process.env.IGNORE_MESSAGE_PREFIX)) return; // Ignore if message starts with '!'
-  if (!allowedChannels.includes(message.channelId)) return; // Ignore if not in allowed channels
+  if (message.author.bot) return;
+  if (!chatChannels.includes(message.channelId)) return;
+  if (message.content.startsWith('!')) return; // Ignore commands
 
-  let initialReply = await message.reply('🧠 Thinking...');
+  let conversationLog = [{ role: 'system', content: systemMessage }];
 
-  const userInput = message.content.toLowerCase();
+  let prevMessages = await message.channel.messages.fetch({ limit: 8 });
+  prevMessages.reverse();
+
+  let initialReply = await message.reply('<a:loading:1095759091869167747> Generating response...');
+
+  prevMessages.forEach((msg) => {
+    if (msg.author.id === client.user.id) {
+      conversationLog.push({ role: 'assistant', content: msg.content });
+    } else {
+      conversationLog.push({ role: 'user', content: msg.content });
+    }
+  });
 
   try {
-    // Handle requests based on user input
-    if (userInput.includes("image") || userInput.includes("generate image")) {
-      const imageUrl = await generateImage(userInput);
-      return initialReply.edit(`Here is your image: ${imageUrl}`);
-    } 
-    else if (userInput.includes("video")) {
-      return initialReply.edit("🔍 Sorry, video generation is not supported yet.");
-    } 
-    else if (userInput.includes("summarize") || userInput.includes("extract")) {
-      const summary = await getTextSummary(userInput);
-      return initialReply.edit(`📜 Summary: ${summary}`);
-    } 
-    else if (userInput.includes("translate")) {
-      const translatedText = await translateText(userInput);
-      return initialReply.edit(`🌍 Translation: ${translatedText}`);
-    } 
-    else if (userInput.includes("transcribe audio")) {
-      return initialReply.edit("🔊 Please upload an audio file for transcription.");
-    } 
-    else if (userInput.includes("search google")) {
-      const searchResult = await googleSearch(userInput);
-      return initialReply.edit(`🔍 Google Search Result: ${searchResult}`);
-    } 
-    else {
-      const chatResponse = await chatWithAI(userInput);
-      return initialReply.edit(chatResponse);
+    let aiResponse;
+    if (message.content.toLowerCase().includes('image')) {
+      aiResponse = await generateImage(message.content);
+    } else if (message.content.toLowerCase().includes('audio')) {
+      aiResponse = await transcribeAudio(message.content);
+    } else if (message.content.toLowerCase().includes('text')) {
+      aiResponse = await generateText(message.content);
+    } else {
+      aiResponse = await chatWithAI(conversationLog);
     }
+
+    initialReply.edit(aiResponse);
   } catch (error) {
-    console.error(error);
-    return initialReply.edit("⚠️ An error occurred. Please try again later.");
+    initialReply.edit(`❌ Error: ${error.message}`);
+    setTimeout(() => initialReply.delete(), 5000);
   }
 });
 
-// Function to Chat with AI
-async function chatWithAI(message) {
-  try {
-    const response = await openai.createChatCompletion({
-      model: "gpt-4",
-      messages: [{ role: "user", content: message }],
-      max_tokens: 250,
-    });
-    return response.data.choices[0].message.content.trim();
-  } catch (error) {
-    console.error("Error in AI Chat:", error);
-    return "⚠️ AI response failed.";
-  }
+// Chat with AI function
+async function chatWithAI(conversationLog) {
+  const response = await openai.createChatCompletion({
+    model: 'gpt-4',
+    messages: conversationLog,
+    max_tokens: 256,
+  });
+  return response.data.choices[0].message.content;
 }
 
-// Function to Generate an Image (DeepSeek)
+// Generate Image function
 async function generateImage(prompt) {
-  try {
-    const response = await axios.post(
-      "https://api.deepseek.com/v1/images/generate",
-      { prompt: prompt, model: "deepseek-image-v2" },
-      { headers: { Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}` } }
-    );
-    return response.data.url;
-  } catch (error) {
-    console.error("Image generation error:", error);
-    return "⚠️ Unable to generate image.";
-  }
+  const response = await fetch('https://api.deepseek.ai/image', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${DEEPSEEK_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  });
+  const data = await response.json();
+  return data.url || '❌ Could not generate image';
 }
 
-// Function to Summarize Text (Google Gemini AI)
-async function getTextSummary(text) {
-  try {
-    const response = await axios.post(
-      "https://api.gemini.com/v1/summarize",
-      { text },
-      { headers: { Authorization: `Bearer ${process.env.GOOGLE_GEMINI_API_KEY}` } }
-    );
-    return response.data.summary;
-  } catch (error) {
-    console.error("Summarization error:", error);
-    return "⚠️ Unable to summarize text.";
-  }
+// Transcribe Audio function
+async function transcribeAudio(audioUrl) {
+  const response = await fetch('https://api.deepseek.ai/transcribe', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${DEEPSEEK_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audioUrl }),
+  });
+  const data = await response.json();
+  return data.transcription || '❌ Could not transcribe audio';
 }
 
-// Function to Translate Text (Google Gemini AI)
-async function translateText(text) {
-  try {
-    const response = await axios.post(
-      "https://api.gemini.com/v1/translate",
-      { text, target_lang: "en" },
-      { headers: { Authorization: `Bearer ${process.env.GOOGLE_GEMINI_API_KEY}` } }
-    );
-    return response.data.translation;
-  } catch (error) {
-    console.error("Translation error:", error);
-    return "⚠️ Translation failed.";
-  }
+// Generate Text function
+async function generateText(prompt) {
+  const response = await fetch('https://api.deepseek.ai/generate-text', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${DEEPSEEK_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  });
+  const data = await response.json();
+  return data.text || '❌ Could not generate text';
 }
 
-// Function to Perform Google Search
-async function googleSearch(query) {
-  try {
-    const response = await axios.get(`https://www.googleapis.com/customsearch/v1`, {
-      params: {
-        key: process.env.GOOGLE_GEMINI_API_KEY,
-        cx: "YOUR_GOOGLE_CUSTOM_SEARCH_ENGINE_ID",
-        q: query,
-      },
-    });
-    return response.data.items[0].snippet;
-  } catch (error) {
-    console.error("Google Search error:", error);
-    return "⚠️ No search results found.";
-  }
-}
+// Handle errors
+process.on('unhandledRejection', (reason) => console.error('Unhandled Rejection:', reason));
+process.on('uncaughtException', (error) => console.error('Uncaught Exception:', error));
 
-// Error Handling
-process.on("unhandledRejection", (reason) => console.error("Unhandled Rejection:", reason));
-process.on("uncaughtException", (error) => console.error("Uncaught Exception:", error));
-
-client.login(process.env.TOKEN);
+client.login(TOKEN);
