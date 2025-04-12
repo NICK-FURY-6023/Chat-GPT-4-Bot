@@ -1,98 +1,92 @@
-require('dotenv/config');
+require('dotenv').config();
 const { Client, IntentsBitField } = require('discord.js');
 const { Configuration, OpenAIApi } = require('openai');
-const logErrors = require('./utils/logErrors');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnectionStatus } = require('@discordjs/voice');
+const fs = require('fs');
+const gTTS = require('gtts');
+const path = require('path');
 
 const client = new Client({
   intents: [
     IntentsBitField.Flags.Guilds,
     IntentsBitField.Flags.GuildMessages,
     IntentsBitField.Flags.MessageContent,
+    IntentsBitField.Flags.GuildVoiceStates
   ],
 });
 
-client.on('ready', (c) => console.log(`${c.user.username} is online and ready!`));
+const openai = new OpenAIApi(new Configuration({
+  apiKey: process.env.API_KEY,
+}));
 
-// Setup OpenAI API
-const configuration = new Configuration({ apiKey: process.env.API_KEY });
-const openai = new OpenAIApi(configuration);
+const voiceChannelId = process.env.VOICE_CHANNEL_ID;
+let connection;
 
-// Custom system message used to modify the model's behaviour
-const systemMessage =
-  "You're a sarcastic chatbot in a Discord server. Respond in 5 or less sentences.";
+client.once('ready', async () => {
+  console.log(`${client.user.username} is online!`);
 
-const ignoreMessagePrefix = process.env.IGNORE_MESSAGE_PREFIX;
+  const channel = await client.channels.fetch(voiceChannelId);
+  if (!channel || channel.type !== 2) return console.error('Invalid voice channel ID');
 
-let chatChannels = process.env.CHANNEL_ID.split('-');
+  connection = joinVoiceChannel({
+    channelId: voiceChannelId,
+    guildId: channel.guild.id,
+    adapterCreator: channel.guild.voiceAdapterCreator,
+    selfDeaf: false
+  });
+
+  connection.on(VoiceConnectionStatus.Ready, () => {
+    console.log('Bot joined the voice channel and is ready.');
+  });
+});
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
-  if (!chatChannels.includes(message.channelId)) return;
-  if (message.content.startsWith(ignoreMessagePrefix)) return;
+  if (!message.content || message.content.startsWith('!')) return;
 
-  let conversationLog = [{ role: 'system', content: systemMessage }];
+  try {
+    const messages = await message.channel.messages.fetch({ limit: 8 });
+    const sorted = messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+    const conversation = [
+      { role: 'system', content: "You're a funny, sarcastic voice assistant in a Discord server. Respond in less than 5 sentences." }
+    ];
 
-  // Fetch previous messages to use as context
-  let prevMessages = await message.channel.messages.fetch({ limit: 8 }); // Last 8 messages will be used as context
-  prevMessages.reverse();
-
-  let initialReply = await message.reply(
-    '<a:loading:1095759091869167747> Generating a response, please wait...'
-  );
-
-  prevMessages.forEach((msg) => {
-    if (message.content.startsWith(ignoreMessagePrefix)) return;
-    if (msg.author.id !== client.user.id && message.author.bot) return; // Ignore every bot but itself
-
-    // If message author is the bot itself
-    if (msg.author.id === client.user.id) {
-      conversationLog.push({
-        role: 'assistant',
+    sorted.forEach(msg => {
+      if (msg.content.startsWith('!') || msg.author.bot) return;
+      conversation.push({
+        role: msg.author.id === client.user.id ? 'assistant' : 'user',
         content: msg.content,
-        name: msg.author.username.replace(/\s+/g, '_').replace(/[^\w\s]/gi, ''),
       });
-    }
-
-    // If the message is from a regular user
-    else if (msg.author.id === message.author.id) {
-      conversationLog.push({
-        role: 'user',
-        content: msg.content,
-        name: message.author.username.replace(/\s+/g, '_').replace(/[^\w\s]/gi, ''),
-      });
-    }
-  });
-
-  // Generate a response
-  openai
-    .createChatCompletion({
-      model: 'gpt-3.5-turbo',
-      messages: conversationLog,
-      max_tokens: 256, // Limit token usage (optional)
-    })
-    .then((result) => {
-      let gptReply = result.data.choices[0].message;
-
-      if (gptReply.length > 2000) {
-        gptReply = gptReply.slice(0, 1997) + '...';
-      }
-
-      initialReply.edit(gptReply);
-    })
-    .catch(async (error) => {
-      // Edit the message with the error and delete after 5 seconds
-      await initialReply.edit(
-        `<:xmark:1055230112934674513> There was an error, please try again later.\n${error}`
-      );
-
-      setTimeout(() => {
-        initialReply.delete();
-      }, 5000);
     });
-});
 
-// Error handling
-process.on('unhandledRejection', (reason) => logErrors(reason));
-process.on('uncaughtException', (reason) => logErrors(reason));
+    const result = await openai.createChatCompletion({
+      model: 'gpt-4',
+      messages: conversation,
+      max_tokens: 200
+    });
+
+    const replyText = result.data.choices[0].message.content;
+    const tts = new gTTS(replyText, 'en');
+    const filePath = path.join(__dirname, 'reply.mp3');
+
+    tts.save(filePath, async function () {
+      const resource = createAudioResource(filePath);
+      const player = createAudioPlayer();
+
+      player.play(resource);
+      connection.subscribe(player);
+
+      player.on(AudioPlayerStatus.Idle, () => {
+        fs.unlinkSync(filePath);
+      });
+
+      await message.react('🔊');
+    });
+
+  } catch (err) {
+    console.error(err);
+    message.reply('Kuch gadbad ho gayi. Error: ' + err.message);
+  }
+});
 
 client.login(process.env.TOKEN);
